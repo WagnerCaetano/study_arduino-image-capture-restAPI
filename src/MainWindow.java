@@ -7,7 +7,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.image.BufferedImage;
-import java.io.File;
+import java.io.*;
+import java.net.HttpURLConnection;
+import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -31,8 +33,6 @@ public class MainWindow {
   private JFrame windowFrame;
   private JPanel mainPanel;
   private File selectedFolder;
-  private JLabel saveCountLabel = new JLabel();
-  private Integer saveCounter = 0;
   private BufferedImage imageBuffer;
   private JLabel imageContainer;
   private TextArea debugWindow;
@@ -69,7 +69,6 @@ public class MainWindow {
     saveBar.add(createSelectFolderButton(filePathLabel));
     saveBar.add(Box.createHorizontalStrut(10));
     saveBar.add(filePathLabel);
-    saveBar.add(saveCountLabel);
 
     return saveBar;
   }
@@ -205,6 +204,9 @@ public class MainWindow {
 
   private void debugTextReceived(String debugText) {
     System.out.println(debugText);
+    if(debugText.contains("Button Pressed")) {
+      sendImageBackend();
+    }
     debugWindow.append(debugText + "\n");
   }
 
@@ -212,16 +214,64 @@ public class MainWindow {
   private void saveImageToFile(BufferedImage image, File toFolder) {
     try {
       // save image to png file
-      File newFile = new File(toFolder.getAbsolutePath(), getNextFileName());
-      ImageIO.write(image, "png", newFile);
-      saveCountLabel.setText(" (" + (++saveCounter) + ")");
+      File newFile = new File(toFolder.getAbsolutePath(),  "output.png");
+      FileOutputStream fos = new FileOutputStream(newFile);
+      ImageIO.write(image, "png", fos);
+      fos.close();
     } catch (Exception e) {
       System.out.println("Saving file failed: " + e.getMessage());
     }
   }
 
-  private String getNextFileName() {
-    return (new SimpleDateFormat("yyyy-MM-dd_HH.mm.ss.SSS")).format(new Date()) + ".png";
+  private void sendImageBackend() {
+    String apiUrl = "http://192.168.1.34:5000/photos";
+    String filePath = "./img/output.png";
+
+    try {
+      URL url = new URL(apiUrl);
+      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+      connection.setRequestMethod("POST");
+      connection.setDoOutput(true);
+
+      String boundary = "*****";
+      String lineBreak = "\r\n";
+      String twoHyphens = "--";
+
+      connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
+
+      DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
+      outputStream.writeBytes(twoHyphens + boundary + lineBreak);
+      outputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + filePath + "\"" + lineBreak);
+      outputStream.writeBytes(lineBreak);
+
+      outputStream.writeBytes(lineBreak);
+      outputStream.writeBytes(twoHyphens + boundary + twoHyphens + lineBreak);
+      outputStream.flush();
+      outputStream.close();
+
+      int responseCode = connection.getResponseCode();
+      if (responseCode == HttpURLConnection.HTTP_OK) {
+        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
+        String responseLine;
+        StringBuilder response = new StringBuilder();
+
+        while ((responseLine = reader.readLine()) != null) {
+          response.append(responseLine);
+        }
+
+        reader.close();
+
+        // Process the response
+        String responseBody = response.toString();
+        System.out.println(responseBody);
+      } else {
+        System.out.println("An error occurred: " + responseCode);
+      }
+
+      connection.disconnect();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
   }
 
 
