@@ -1,8 +1,14 @@
 
 import capture.ImageCapture;
 import capture.ImageFrame;
-import com.fazecast.jSerialComm.SerialPort;
-import com.fazecast.jSerialComm.SerialPortEvent;
+import org.apache.hc.client5.http.classic.HttpClient;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.entity.mime.FileBody;
+import org.apache.hc.client5.http.entity.mime.MultipartEntityBuilder;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.core5.http.ContentType;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.HttpResponse;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -10,9 +16,6 @@ import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URL;
-import java.util.Objects;
 
 /**
  * Created by indrek on 1.05.2016.
@@ -206,10 +209,14 @@ public class MainWindow {
   private void debugTextReceived(String debugText) {
     System.out.println(debugText);
     if(debugText.contains("Button Pressed")) {
-      String result = sendImageBackend();
-      if (result.equals("409") || result.equals("200")) {
-        System.out.println("foi");
-      }
+      new Thread(() -> {
+        try {
+          //send image to backend
+          sendImageBackend();
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      }).start();
     }
     debugWindow.append(debugText + "\n");
   }
@@ -227,61 +234,23 @@ public class MainWindow {
     }
   }
 
-  private String sendImageBackend() {
-    String apiUrl = "http://192.168.1.34:5000/photos";
-    String filePath = "./img/output.png";
+  private static void sendImageBackend() {
+    File screenshotFile = new File("./img/output.png");
 
+    MultipartEntityBuilder builder = MultipartEntityBuilder.create();
+    builder.addPart("file", new FileBody(screenshotFile, ContentType.create("image/png"), "output.png"));
+
+    HttpEntity multipartEntity = builder.build();
+    HttpPost request = new HttpPost("http://192.168.1.34:5000/photos");
+    request.setEntity(multipartEntity);
+
+    HttpClient httpClient = HttpClients.createDefault();
     try {
-      URL url = new URL(apiUrl);
-      HttpURLConnection connection = (HttpURLConnection) url.openConnection();
-      connection.setRequestMethod("POST");
-      connection.setDoOutput(true);
-
-      String boundary = "*****";
-      String lineBreak = "\r\n";
-      String twoHyphens = "--";
-
-      connection.setRequestProperty("Content-Type", "multipart/form-data; boundary=" + boundary);
-
-      DataOutputStream outputStream = new DataOutputStream(connection.getOutputStream());
-      outputStream.writeBytes(twoHyphens + boundary + lineBreak);
-      outputStream.writeBytes("Content-Disposition: form-data; name=\"file\"; filename=\"" + filePath + "\"" + lineBreak);
-      outputStream.writeBytes(lineBreak);
-
-      outputStream.writeBytes(lineBreak);
-      outputStream.writeBytes(twoHyphens + boundary + twoHyphens + lineBreak);
-      outputStream.flush();
-      outputStream.close();
-
-      int responseCode = connection.getResponseCode();
-      if (responseCode == HttpURLConnection.HTTP_OK) {
-        BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-        String responseLine;
-        StringBuilder response = new StringBuilder();
-
-        while ((responseLine = reader.readLine()) != null) {
-          response.append(responseLine);
-        }
-
-        reader.close();
-
-
-        // Process the response
-        String responseBody = response.toString();
-        int indexOf = responseBody.indexOf("status");
-        String status = responseBody.substring(indexOf + 8, indexOf + 11);
-        System.out.println(responseBody);
-        System.out.println(status);
-        return status;
-      } else {
-        System.out.println("An error occurred: " + responseCode);
-      }
-
-      connection.disconnect();
-    } catch (Exception e) {
+      HttpResponse response = httpClient.execute(request);
+      System.out.println(response);
+    } catch (IOException e) {
       e.printStackTrace();
     }
-    return apiUrl;
   }
 
 
