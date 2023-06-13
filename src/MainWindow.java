@@ -1,6 +1,8 @@
 
 import capture.ImageCapture;
 import capture.ImageFrame;
+import com.fazecast.jSerialComm.SerialPort;
+import com.fazecast.jSerialComm.SerialPortEvent;
 
 import javax.imageio.ImageIO;
 import javax.swing.*;
@@ -10,8 +12,7 @@ import java.awt.image.BufferedImage;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.Objects;
 
 /**
  * Created by indrek on 1.05.2016.
@@ -205,7 +206,10 @@ public class MainWindow {
   private void debugTextReceived(String debugText) {
     System.out.println(debugText);
     if(debugText.contains("Button Pressed")) {
-      sendImageBackend();
+      String result = sendImageBackend();
+      if (result.equals("409") || result.equals("200")) {
+        System.out.println("foi");
+      }
     }
     debugWindow.append(debugText + "\n");
   }
@@ -223,7 +227,7 @@ public class MainWindow {
     }
   }
 
-  private void sendImageBackend() {
+  private String sendImageBackend() {
     String apiUrl = "http://192.168.1.34:5000/photos";
     String filePath = "./img/output.png";
 
@@ -261,9 +265,14 @@ public class MainWindow {
 
         reader.close();
 
+
         // Process the response
         String responseBody = response.toString();
+        int indexOf = responseBody.indexOf("status");
+        String status = responseBody.substring(indexOf + 8, indexOf + 11);
         System.out.println(responseBody);
+        System.out.println(status);
+        return status;
       } else {
         System.out.println("An error occurred: " + responseCode);
       }
@@ -272,6 +281,7 @@ public class MainWindow {
     } catch (Exception e) {
       e.printStackTrace();
     }
+    return apiUrl;
   }
 
 

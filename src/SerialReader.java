@@ -102,10 +102,23 @@ public class SerialReader implements SerialPortDataListener {
       } catch (Exception e) {
         System.err.println(e.toString());
       }
-    } else {
+    }
+    else if (oEvent.getEventType() == SerialPort.LISTENING_EVENT_DATA_WRITTEN) {
+      try {
+        serialOutput.write(oEvent.getReceivedData());
+        serialOutput.flush();
+        //serialOutput.close();
+      } catch (Exception e) {
+        System.err.println(e.toString());
+      }
+      System.out.println("Data written");
+    }
+
+    else {
       System.out.println("Received event " + oEvent.getEventType());
     }
   }
+
 
 
   public synchronized void stopListening() {
