@@ -241,7 +241,7 @@ public class MainWindow {
     builder.addPart("file", new FileBody(screenshotFile, ContentType.create("image/png"), "output.png"));
 
     HttpEntity multipartEntity = builder.build();
-    HttpPost request = new HttpPost("http://192.168.1.34:5000/photos");
+    HttpPost request = new HttpPost("http://ec2-18-228-199-45.sa-east-1.compute.amazonaws.com:5000/photos");
     request.setEntity(multipartEntity);
 
     HttpClient httpClient = HttpClients.createDefault();
